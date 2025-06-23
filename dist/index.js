@@ -4,7 +4,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { google } from "googleapis";
-import { getValidCredentials, setupTokenRefresh, loadCredentialsQuietly, } from "./auth.js";
+import { getValidCredentials, setupTokenRefresh, loadCredentialsQuietly, getCredentialsFromHost, } from "./auth.js";
 import { tools } from "./tools/index.js";
 const drive = google.drive("v3");
 const server = new Server({
@@ -20,8 +20,15 @@ const server = new Server({
         tools: {},
     },
 });
+let host_auth = false;
 // Ensure we have valid credentials before making API calls
 async function ensureAuth() {
+    if (host_auth) {
+        // Access tokens provided by server's host
+        const auth = getCredentialsFromHost();
+        google.options({ auth });
+        return auth;
+    }
     const auth = await getValidCredentials();
     google.options({ auth });
     return auth;
@@ -111,6 +118,10 @@ async function startServer() {
         console.error("Error starting server:", error);
         process.exit(1);
     }
+}
+if (process.argv[2] === "--host-auth") {
+    console.error(`Server Host Auth mode`);
+    host_auth = true;
 }
 // Start server immediately
 startServer().catch(console.error);
