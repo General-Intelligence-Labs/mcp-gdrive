@@ -2,6 +2,7 @@ import { authenticate } from "@google-cloud/local-auth";
 import { google } from "googleapis";
 import fs from "fs";
 import path from "path";
+import { OAuth2Client } from "google-auth-library";
 
 export const SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
@@ -13,7 +14,6 @@ const CREDS_DIR =
   process.env.GDRIVE_CREDS_DIR ||
   path.join(path.dirname(new URL(import.meta.url).pathname), "../../../");
 
-
 // Ensure the credentials directory exists
 function ensureCredsDirectory() {
   try {
@@ -22,7 +22,7 @@ function ensureCredsDirectory() {
   } catch (error) {
     console.error(
       `Failed to create credentials directory: ${CREDS_DIR}`,
-      error,
+      error
     );
     throw error;
   }
@@ -33,10 +33,10 @@ const credentialsPath = path.join(CREDS_DIR, ".gdrive-server-credentials.json");
 async function authenticateWithTimeout(
   keyfilePath: string,
   SCOPES: string[],
-  timeoutMs = 30000,
+  timeoutMs = 30000
 ): Promise<any | null> {
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Authentication timed out")), timeoutMs),
+    setTimeout(() => reject(new Error("Authentication timed out")), timeoutMs)
   );
 
   const authPromise = authenticate({
@@ -75,7 +75,7 @@ async function authenticateAndSaveCredentials() {
     fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
     console.error(
       "Credentials saved successfully with refresh token to:",
-      credentialsPath,
+      credentialsPath
     );
     auth.setCredentials(credentials);
     return auth;
@@ -91,7 +91,7 @@ export async function loadCredentialsQuietly() {
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.CLIENT_ID,
-    process.env.CLIENT_SECRET,
+    process.env.CLIENT_SECRET
   );
 
   if (!fs.existsSync(credentialsPath)) {
@@ -147,6 +147,21 @@ export async function getValidCredentials(forceAuth = false) {
   }
 
   return await authenticateAndSaveCredentials();
+}
+
+// Get credentials from env variable set by host
+export function getCredentialsFromHost() {
+  const accessToken = process.env.GOOGLE_API_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error("Missing GOOGLE_API_ACCESS_TOKEN environment variable.");
+  }
+
+  const client = new OAuth2Client();
+  client.setCredentials({
+    access_token: accessToken,
+    scope: SCOPES.join(" "),
+  });
+  return client;
 }
 
 // Background refresh that never prompts for auth

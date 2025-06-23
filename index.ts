@@ -13,6 +13,7 @@ import {
   getValidCredentials,
   setupTokenRefresh,
   loadCredentialsQuietly,
+  getCredentialsFromHost,
 } from "./auth.js";
 import { tools } from "./tools/index.js";
 import { InternalToolResponse } from "./tools/types.js";
@@ -33,11 +34,18 @@ const server = new Server(
       },
       tools: {},
     },
-  },
+  }
 );
 
+let host_auth = false;
 // Ensure we have valid credentials before making API calls
 async function ensureAuth() {
+  if (host_auth) {
+    // Access tokens provided by server's host
+    const auth = getCredentialsFromHost();
+    google.options({ auth });
+    return auth;
+  }
   const auth = await getValidCredentials();
   google.options({ auth });
   return auth;
@@ -129,10 +137,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function startServer() {
   try {
     console.error("Starting server");
-    
+
     // Add this line to force authentication at startup
     await ensureAuth(); // This will trigger the auth flow if no valid credentials exist
-    
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
@@ -142,6 +150,11 @@ async function startServer() {
     console.error("Error starting server:", error);
     process.exit(1);
   }
+}
+
+if (process.argv[2] === "--host-auth") {
+  console.error(`Server Host Auth mode`);
+  host_auth = true;
 }
 
 // Start server immediately

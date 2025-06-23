@@ -2,6 +2,7 @@ import { authenticate } from "@google-cloud/local-auth";
 import { google } from "googleapis";
 import fs from "fs";
 import path from "path";
+import { OAuth2Client } from "google-auth-library";
 export const SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/spreadsheets",
@@ -88,7 +89,7 @@ export async function loadCredentialsQuietly() {
                 const newCreds = response.credentials;
                 ensureCredsDirectory();
                 fs.writeFileSync(credentialsPath, JSON.stringify(newCreds, null, 2));
-                oauth2Client.setCredentials(newCreds);
+                oauth2Client.setCredentials(newCreds); // here
                 console.error("Token refreshed and saved successfully");
             }
             catch (error) {
@@ -112,6 +113,19 @@ export async function getValidCredentials(forceAuth = false) {
         }
     }
     return await authenticateAndSaveCredentials();
+}
+// Get credentials from env variable set by host
+export function getCredentialsFromHost() {
+    const accessToken = process.env.GOOGLE_API_ACCESS_TOKEN;
+    if (!accessToken) {
+        throw new Error("Missing GOOGLE_API_ACCESS_TOKEN environment variable.");
+    }
+    const client = new OAuth2Client();
+    client.setCredentials({
+        access_token: accessToken,
+        scope: SCOPES.join(" "),
+    });
+    return client;
 }
 // Background refresh that never prompts for auth
 export function setupTokenRefresh() {
